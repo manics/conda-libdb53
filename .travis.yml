@@ -1,64 +1,51 @@
-# This file was generated automatically from conda-smithy. To update this configuration,
-# update the conda-forge.yml and/or the recipe/meta.yaml.
-
+---
 language: generic
 
-os: osx
-osx_image: xcode6.4
+matrix:
+  include:
+    - os: linux
+    - os: osx
 
 env:
-  matrix:
-    - CONFIG=osx_c_compilerclangcxx_compilerclangxx
-    - CONFIG=osx_c_compilertoolchain_ccxx_compilertoolchain_cxx
-
   global:
-    # The BINSTAR_TOKEN secure variable. This is defined canonically in conda-forge.yml.
-    - secure: "RmpXH4cYCn/Slkrh9ouXiPL4GBKw+VVK1kEt4le7UN96NzfUJzCGgRNSIzoG2WbwJKiL4Ish56Pwj/ceNq/49Zdtg8k6fw9MijK9W4G/gL8CsdJoeEPXoyiPzZGKDYJ0jMevqKL5YC6QhyQ3QTbjI4YOOANp+d8w1ElFn6q6RDLd7P5W/Ppde0wJwqgJEkaZGSWZjrEhLWgTWJJxmUtstoKLC22qxSroMsTZfiN4IwXpLIr0sUY3dtRupCega6Rd3ete+aD7hKkb734CZE2cejMm/SrAu9Ssf3Osk/KAIuOwadWdv4KSRwRoGPAv/dyP5v4Ukx4pu+H62/S2BMaffTwDmgOsewQFxDGDUcZOHEwrmjyF+ZTdRRd3nDjn0m0A03GZ51FsOZI/R/QwagH3aifXYLK9DFzs7TVFhhuPSbpIncATE4sDaw93hAO5KaRuBG4g8cprXGbDuGIdKCJj0CK01cUEoff4uXR17Ws99H6NqluAYPlLb21l6UAVn6AKjMKF2jyOu1btgLDqvqmB6lrzBicryUAPjx8iumH/wwppnfra90TFvc3WMoI3jRE9PNC2V56+ZCxqjKnWMJFwNZrCGmZWCbm5SOwywxdKVqs+dt412GyxClmM1KmrlrJmRQGhlrVKv0jIJDXVZvqV3YXkmjg6/zcwiwoI/WV0bx8="
-
-
-before_install:
-    # Fast finish the PR.
-    - |
-      (curl https://raw.githubusercontent.com/conda-forge/conda-forge-ci-setup-feedstock/branch2.0/recipe/conda_forge_ci_setup/ff_ci_pr_build.py | \
-          python - -v --ci "travis" "${TRAVIS_REPO_SLUG}" "${TRAVIS_BUILD_NUMBER}" "${TRAVIS_PULL_REQUEST}") || exit 1
-
-    # Remove homebrew.
-    - |
-      echo ""
-      echo "Removing homebrew from Travis CI to avoid conflicts."
-      curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/uninstall > ~/uninstall_homebrew
-      chmod +x ~/uninstall_homebrew
-      ~/uninstall_homebrew -fq
-      rm ~/uninstall_homebrew
-
+    - PACKAGE_NAME=libdb53
+    - PATH="$HOME/miniconda/bin:$PATH"
 
 install:
-    # Install Miniconda.
-    - |
-      echo ""
-      echo "Installing a fresh version of Miniconda."
-      MINICONDA_URL="https://repo.continuum.io/miniconda"
-      MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
-      curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
-      bash $MINICONDA_FILE -b
-
-    # Configure conda.
-    - |
-      echo ""
-      echo "Configuring conda."
-      source /Users/travis/miniconda3/bin/activate root
-
-      conda install --yes --quiet conda-forge::conda-forge-ci-setup=2
-      setup_conda_rc ./ ./recipe ./.ci_support/${CONFIG}.yaml
-
-      source run_conda_forge_build_setup
-
-    # compiler cleanup
-    - |
-      mangle_compiler ./ ./recipe ./.ci_support/${CONFIG}.yaml
+  # xcode image is missing headers
+  # https://github.com/travis-ci/travis-ci/issues/9640
+  # https://docs.conda.io/projects/conda-build/en/latest/resources/compiler-tools.html#macos-sdk
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+      pushd /opt;
+      curl -L https://github.com/phracker/MacOSX-SDKs/releases/download/10.13/MacOSX10.9.sdk.tar.xz | sudo tar xf -;
+      popd;
+    fi
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+    else
+        wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - conda install -y conda-build anaconda-client
+  - conda info -a
 
 script:
-  # generate the build number clobber
-  - make_build_number ./ ./recipe ./.ci_support/${CONFIG}.yaml
-  - conda build ./recipe -m ./.ci_support/${CONFIG}.yaml --clobber-file ./.ci_support/clobber_${CONFIG}.yaml
-  - upload_package ./ ./recipe ./.ci_support/${CONFIG}.yaml
+  # Override the version string for dev builds
+  - if [ -z "${TRAVIS_TAG}" ]; then
+      export VERSION_SUFFIX=".${TRAVIS_BRANCH}";
+    else
+      export VERSION_SUFFIX="";
+    fi
+  - conda build .
+
+deploy:
+  - provider: script
+    skip_cleanup: true
+    script: anaconda -t $CONDA_UPLOAD_TOKEN upload $HOME/miniconda/conda-bld/$TRAVIS_OS_NAME-64/$PACKAGE_NAME-*.tar.bz2 --force -l testing
+    on:
+      branch: master
+  - provider: script
+    skip_cleanup: true
+    script: anaconda -t $CONDA_UPLOAD_TOKEN upload $HOME/miniconda/conda-bld/$TRAVIS_OS_NAME-64/$PACKAGE_NAME-*.tar.bz2
+    on:
+      tags: true
