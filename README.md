@@ -1,5 +1,6 @@
 libdb53
 =======
+[![Anaconda-Server Badge](https://anaconda.org/manics/libdb53/badges/version.svg)](https://anaconda.org/manics/libdb53)
 
 Home: http://www.oracle.com/technology/software/products/berkeley-db/index.html
 

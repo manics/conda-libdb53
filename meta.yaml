@@ -2,7 +2,7 @@
 
 package:
   name: libdb53
-  version: {{ version }}
+  version: "{{ version }}{{ environ.get('VERSION_SUFFIX', '') }}"
 
 source:
   url: http://download.oracle.com/berkeley-db/db-{{ version }}.tar.gz
@@ -13,6 +13,8 @@ source:
 
 build:
   number: 0
+  script_env:
+    - VERSION_SUFFIX
 
 requirements:
   build:
