@@ -12,7 +12,7 @@ source:
     - src_dbinc_atomic.h.patch  # [osx]
 
 build:
-  number: 0
+  number: 1
   script_env:
     - VERSION_SUFFIX
 
